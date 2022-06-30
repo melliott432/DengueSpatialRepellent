@@ -56,4 +56,3 @@ location_probability = function(a, qu, tau, d, rho, q_mult, alpha, C) {
     return(steadyStates(markovchain_object)[1,])
   }
 }
-

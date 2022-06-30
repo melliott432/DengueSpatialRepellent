@@ -1,23 +1,23 @@
 library(dplyr)
 
 # load the data sets and parameter values used to make the simulation
-setwd("~/Dropbox/DengueEntomologicalEffects/Analyses/BayesianTools/results")
-load("SimFull.RData")
+setwd("~/OneDrive/Documents/ND/Research/DengueSpatialRepellent/simulations_data")
+load("SimFull0601.RData")
 load("20SimulatedDatasets.RData")
 
 #### Comparison of posterior to true value ####
+npars = 8
 
 # reorder combos to try
 combos_to_try = head(combos_to_try, 20)
 names(combos_to_try) = sub("_true", "", names(combos_to_try))
 
 combos_to_try = combos_to_try %>%
-  dplyr::select(lambda, au, a.mult, g.mult, q.mult, phi,qu,tau, n, d, X, gu, b,c, rho,
-                catch_prop)
+  dplyr::select(lambda, au, a.mult, g.mult, q.mult, n, X, gu)
 
 # determine what proportion of the posterior contained the true value for each parameter
-prop_true_value = rep(0,16)
-for(par in 1:16){
+prop_true_value = rep(0,npars)
+for(par in 1:npars){
   for(i in 1:20){
     if (quantile(result[[i]][[1]][,par], .005) < combos_to_try[i, par] & 
         quantile(result[[i]][[1]][,par], .995) > combos_to_try[i,par]){
@@ -28,18 +28,39 @@ for(par in 1:16){
 
 prop_true_value = prop_true_value / 20
 
-setwd("~/Dropbox/DengueEntomologicalEffects/Analyses/BayesianTools/results/plots")
-png("Simulation_ValueComparison_7.png", height=1000, width=1000)
+setwd("~/OneDrive/Documents/ND/Research/SR/plots")
+png("2022-06-01-Simulation_ValueComparison_7.png", height=1000, width=1000)
 # plot posterior medians vs true parameter
-par(mfrow=c(4,4), cex=1.1, mar=c(3, 3, 3, 1))
-lows = rep(0, 16)
-tops = c(100, 5, 2, 2, 2, 10, 10, 10, 20, 2, 1, 1, 1, 1, 1, 1)
-param_names = c("Mosquito Emergence", "Baseline biting rate", "Multiplier on biting",
-                "Multiplier on mortality", "Multiplier on Exit Rate", "Dispersion",
-                "Baseline Exit Rate", "Entrance Rate", "EIP", "Digestion Rate",
-                "Arbovirus Prevalence","Baseline Mortality", "Mosquito to Human Transmission",
-                "Human to Mosquito Transmission", "Repellency", "Proportion Mosquitoes Caught")
-for(par in 1:16){
+par(mfrow=c(2,4), cex=1.1, mar=c(3, 3, 3, 1))
+lows = rep(0, npars)
+tops = c(100, 
+         5, 
+         2, 
+         2, 
+         2, 
+         #10,10,10, 
+         20, 
+         #2, 
+         1, 
+         1)
+         #1, 1, 1, 1)
+param_names = c("Mosquito Emergence", 
+                "Baseline biting rate", 
+                "Multiplier on biting",
+                "Multiplier on mortality",
+                "Multiplier on Exit Rate",
+                #"Dispersion",
+                #"Baseline Exit Rate", 
+                #"Entrance Rate", 
+                "EIP",
+                #"Digestion Rate",
+                "Arbovirus Prevalence",
+                "Baseline Mortality")
+                #"Mosquito to Human Transmission",
+                #"Human to Mosquito Transmission", 
+                #"Repellency",
+                #"Proportion Mosquitoes Caught")
+for(par in 1:npars){
   plot(0, type="n", xlim=c(lows[par], tops[par]), ylim=c(lows[par], tops[par]), xlab="True",
        ylab="Inferred",
        main=param_names[par])
@@ -57,14 +78,12 @@ for(par in 1:16){
 dev.off()
 
 
-
-
-setwd("~/Dropbox/DengueEntomologicalEffects/Analyses/BayesianTools/code")
+setwd("~/OneDrive/Documents/ND/Research/DengueSpatialRepellent/code")
 source("functions.R")
 
 #### load trial data ####
 
-setwd("~/Dropbox/DengueEntomologicalEffects/Analyses/BayesianTools/data")
+setwd("~/OneDrive/Documents/ND/Research/DengueSpatialRepellent/likelihood_data")
 bloodmeal_intervention = read.csv("bloodmeal_intervention.csv")
 bloodmeal_baseline = read.csv("bloodmeal_baseline.csv")
 
@@ -214,7 +233,7 @@ for(i in 1:length(result)){
   post_preds_intervention_treatment = rbinom(1000,
                                              size=sum(parity_intervention[
                                                parity_intervention$cluster_trt == "T",
-                                               ]$total_caught), 
+                                             ]$total_caught), 
                                              prob=posterior$parity_treatment)
   
   # add to vector

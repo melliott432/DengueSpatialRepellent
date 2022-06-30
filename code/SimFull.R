@@ -1,5 +1,3 @@
-
-
 library(tidyverse)
 library(fitdistrplus)
 library(BayesianTools)
@@ -12,10 +10,10 @@ library(doParallel)
 source("functions.R")
 
 # load trial data 
-bloodmeal_intervention = read.csv("bloodmeal_intervention.csv")
-bloodmeal_baseline = read.csv("bloodmeal_baseline.csv")
+bloodmeal_intervention = read.csv("likelihood_data/bloodmeal_intervention.csv")
+bloodmeal_baseline = read.csv("likelihood_data/bloodmeal_baseline.csv")
 
-# take total full to be the sum of hald and full
+# take total full to be the sum of half and full
 bloodmeal_intervention = bloodmeal_intervention %>%
   mutate(total_fed = total_full + total_half) %>%
   dplyr::select(-c(total_full, total_half))
@@ -24,16 +22,16 @@ bloodmeal_baseline = bloodmeal_baseline %>%
   mutate(total_fed = total_full + total_half) %>%
   dplyr::select(-c(total_full, total_half))
 
-abundance_baseline = read.csv("abundance_baseline.csv")
-abundance_intervention_control = read.csv("abundance_intervention_control.csv")
-abundance_intervention_treatment = read.csv("abundance_intervention_treatment.csv")
+abundance_baseline = read.csv("likelihood_data/abundance_baseline.csv")
+abundance_intervention_control = read.csv("likelihood_data/abundance_intervention_control.csv")
+abundance_intervention_treatment = read.csv("likelihood_data/abundance_intervention_treatment.csv")
 
-parity_baseline = read.csv("parity_baseline.csv")
-parity_intervention = read.csv("parity_intervention.csv")
+parity_baseline = read.csv("likelihood_data/parity_baseline.csv")
+parity_intervention = read.csv("likelihood_data/parity_intervention.csv")
 
-epi = read.csv("epi.csv")
+epi = read.csv("likelihood_data/epi.csv")
 
-load("treatedclusters.RData")
+load("likelihood_data/treatedclusters.RData")
 
 C=.5
 p=5.2
@@ -42,7 +40,9 @@ p=5.2
 
 #### function to perform inference on a data set ####
 
-infer_parameters = function(simulated_data,  index){
+infer_parameters = function(simulated_data,  index,
+                            qu_true, tau_true, d_true, rho_true, 
+                            b_true, c_true, phi_true, catch_prop_true){
   
   # unpack the simulated data
   sc_control_sim = simulated_data[[1]][[1]]
@@ -63,22 +63,22 @@ infer_parameters = function(simulated_data,  index){
   likelihood = function(params){
     
     lambda = exp(params[1])
-    qu=exp(params[7])
+    qu = qu_true #exp(params[7])
     q_mult = exp(params[5])
-    g_mult =exp(params[4])
-    gu = sigmoid(params[12])
-    au=exp(params[2])
-    tau=exp(params[6])
-    d = exp(params[9])
+    g_mult = exp(params[4])
+    gu = sigmoid(params[8])
+    au = exp(params[2])
+    tau = tau_true #exp(params[6])
+    d = d_true #exp(params[9])
     
-    rho=sigmoid(params[14])
-    alpha=exp(params[3])
-    b=sigmoid(params[15])
-    c=sigmoid(params[13])
-    X= sigmoid(params[11])
-    phi=exp(params[10])
-    catch_prop = sigmoid(params[16])
-    n=exp(params[8])
+    rho = rho_true #sigmoid(params[14])
+    alpha = exp(params[3])
+    b = b_true #sigmoid(params[15])
+    c = c_true #sigmoid(params[13])
+    X = sigmoid(params[7])
+    phi = phi_true #exp(params[10])
+    catch_prop = catch_prop_true #sigmoid(params[16])
+    n = exp(params[6])
     
     qt = qu * q_mult
     gt = gu * g_mult
@@ -137,10 +137,10 @@ infer_parameters = function(simulated_data,  index){
     foi_t = force_of_infection(b, lambda, ac_treatment, c, X, gc_treatment, n)
     
     prob_not_sc_control = exp(-foi_c * sc_control_sim$followup_days)
-    prob_sc_control =1 - prob_not_sc_control
+    prob_sc_control = 1 - prob_not_sc_control
     
     prob_not_sc_treatment = exp(-foi_t * sc_treatment_sim$followup_days)
-    prob_sc_treatment =1 - prob_not_sc_treatment
+    prob_sc_treatment = 1 - prob_not_sc_treatment
     
     
     # take care of some zeroes
@@ -257,16 +257,14 @@ infer_parameters = function(simulated_data,  index){
       result = tail(result, 1000)
       result = as.data.frame(result)
       names(result) =c("lambda", "au", "a.mult", "g.mult", "q.mult",
-                       "tau", "qu", "n","d","phi",
-                       "X", "gu", "c", "rho", "b", "catch_prop")
+                       "n", "X", "gu")
       
       # convert to natural units
       result_exp = exp(result)
       result_sigmoid = sigmoid(result)
-      result = cbind(result_exp[,1:10], result_sigmoid[,11:16])
+      result = cbind(result_exp[,1:6], result_sigmoid[,7:8])
       names(result) =c("lambda", "au", "a.mult", "g.mult", "q.mult",
-                       "tau", "qu", "n","d","phi",
-                       "X", "gu", "c", "rho","b", "catch_prop")
+                       "n", "X", "gu")
       
       total_iterations_so_far = total_iterations_so_far + 10000
       
@@ -303,21 +301,20 @@ prior_density = function(params){
   a.mult_dens = dgamma(exp(params[3]), 100, 100*(4/3), log=T)
   g.mult_dens = dgamma(exp(params[4]), 100, 75, log=T)
   q.mult_dens = dgamma(exp(params[5]), 15, 15.4, log=T)
-  tau_dens = dgamma(exp(params[6]),  2*3.3, 4, log=T)
-  qu_dens = dgamma(exp(params[7]), 2, 4, log=T)
-  n_dens = dgamma(exp(params[8]), 40, 40/14, log=T)
-  d_dens =  dunif(exp(params[9]), .2, 1, log=T)
-  phi_dens = dexp(exp(params[10]),1, log=T)
-  X_dens = dbeta(sigmoid(params[11]), 1, 7, log=T)
-  gu_dens =  dbeta(sigmoid(params[12]), 4, 18, log=T)
-  c_dens = dbeta(sigmoid(params[13]), 1, 1, log=T)
-  rho_dens = dbeta(sigmoid(params[14]), 2, 8, log=T)
-  b_dens = dbeta(sigmoid(params[15]), 1, 1, log=T)
-  catch_prop_dens = dbeta(sigmoid(params[16]), 1, 13/87, log=T)
+  #tau_dens = dgamma(exp(params[6]),  2*3.3, 4, log=T)
+  #qu_dens = dgamma(exp(params[7]), 2, 4, log=T)
+  n_dens = dgamma(exp(params[6]), 40, 40/14, log=T)
+  #d_dens =  dunif(exp(params[9]), .2, 1, log=T)
+  #phi_dens = dexp(exp(params[10]),1, log=T)
+  X_dens = dbeta(sigmoid(params[7]), 1, 7, log=T)
+  gu_dens =  dbeta(sigmoid(params[8]), 4, 18, log=T)
+  #c_dens = dbeta(sigmoid(params[13]), 1, 1, log=T)
+  #rho_dens = dbeta(sigmoid(params[14]), 2, 8, log=T)
+  #b_dens = dbeta(sigmoid(params[15]), 1, 1, log=T)
+  #catch_prop_dens = dbeta(sigmoid(params[16]), 1, 13/87, log=T)
   
-  return(lambda_dens + au_dens + a.mult_dens + g.mult_dens + q.mult_dens + tau_dens+
-           n_dens + d_dens + phi_dens + X_dens + gu_dens + qu_dens + c_dens + rho_dens+
-           b_dens + catch_prop_dens)
+  return(lambda_dens + au_dens + a.mult_dens + g.mult_dens + q.mult_dens + 
+           n_dens + X_dens + gu_dens)
 }
 
 
@@ -327,25 +324,24 @@ prior_sampler = function(n=1){
   a.mult_samp = log(rgamma(n, 100, 100*(4/3)))
   g.mult_samp = log(rgamma(n, 100, 75))
   q.mult_samp = log(rgamma(n, 15, 15.4))
-  tau_samp = log(rgamma(n, 2*3.3, 4))
-  qu_samp = log(rgamma(n, 2, 4))
+  #tau_samp = log(rgamma(n, 2*3.3, 4))
+  #qu_samp = log(rgamma(n, 2, 4))
   n_samp = log(rgamma(n, 40, 40/14))
-  d_samp =  log(runif(n, .2, 1))
-  phi_samp = log(rexp(n,1))
+  #d_samp =  log(runif(n, .2, 1))
+  #phi_samp = log(rexp(n,1))
   X_samp = inverse_sigmoid(rbeta(n, 1, 7))
   gu_samp =  inverse_sigmoid(rbeta(n, 4, 18))
-  c_samp  = inverse_sigmoid(rbeta(n, 1, 1))
-  rho_samp = inverse_sigmoid(rbeta(n, 2, 8))
-  b_samp = inverse_sigmoid(rbeta(n, 1, 1))
-  catch_prop_samp = rbeta(n, 1, 13/87)
-  if(catch_prop_samp > .99){
-    catch_prop_samp = inverse_sigmoid(.99)
-  } else{
-    catch_prop_samp = inverse_sigmoid(catch_prop_samp)
-  }
+  #c_samp  = inverse_sigmoid(rbeta(n, 1, 1))
+  #rho_samp = inverse_sigmoid(rbeta(n, 2, 8))
+  #b_samp = inverse_sigmoid(rbeta(n, 1, 1))
+  #catch_prop_samp = rbeta(n, 1, 13/87)
+  #if(catch_prop_samp > .99){
+  #  catch_prop_samp = inverse_sigmoid(.99)
+  #} else{
+  #  catch_prop_samp = inverse_sigmoid(catch_prop_samp)
+  #}
   return(cbind(lambda_samp, au_samp, a.mult_samp, g.mult_samp, q.mult_samp,
-               tau_samp, qu_samp, n_samp, d_samp, phi_samp, X_samp, gu_samp, c_samp,
-               rho_samp, b_samp, catch_prop_samp))
+               n_samp, X_samp, gu_samp))
 }
 
 
@@ -357,7 +353,15 @@ number_cores = 20
 registerDoParallel(cores=number_cores)
 cl=makeCluster(20)
 result = foreach(i=1:20,.errorhandling = "pass") %dopar% infer_parameters(simulated_data= simulated_datasets[[i]],
-                                                                          index=i)
+                                                                          index=i,
+                                                                          qu_true = combos_to_try$qu_true[i], 
+                                                                          tau_true = combos_to_try$tau_true[i], 
+                                                                          d_true = combos_to_try$d_true[i], 
+                                                                          rho_true = combos_to_try$rho_true[i], 
+                                                                          b_true = combos_to_try$b_true[i], 
+                                                                          c_true = combos_to_try$c_true[i], 
+                                                                          phi_true = combos_to_try$phi_true[i], 
+                                                                          catch_prop_true = combos_to_try$catch_prop_true[i])
 stopCluster(cl)
 
 save(result, file=paste0("SimFull.RData"))

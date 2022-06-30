@@ -1,5 +1,3 @@
-
-
 library(tidyverse)
 library(fitdistrplus)
 library(BayesianTools)
@@ -39,49 +37,6 @@ C=.5
 p=5.2
 
 #### priors and set parameters ####
-
-
-
-prior.data = read.csv("PriorData.csv")
-
-a.gamma = prior.data %>%
-  filter(Parameter == "a") %>%
-  pull(Value) %>%
-  fitdist(distr="gamma")
-a.gamma.vals = a.gamma$estimate
-
-g.beta = prior.data %>%
-  filter(Parameter == "g", !is.na(Value)) %>%
-  pull(Value) %>%
-  fitdist(distr="beta")
-
-g.beta.vals = g.beta$estimate
-
-b.beta = prior.data %>%
-  filter(Parameter == "b", !is.na(Value), Value < 1) %>%
-  pull(Value) %>%
-  fitdist(distr="beta")
-
-b.beta.vals = b.beta$estimate
-
-c.beta = prior.data %>%
-  filter(Parameter == "c", !is.na(Value), Value < 1) %>%
-  pull(Value) %>%
-  fitdist(distr="beta")
-
-g.beta.vals = g.beta$estimate
-
-n.gamma = prior.data %>%
-  filter(Parameter == "n", !is.na(Value)) %>%
-  pull(Value) %>%
-  fitdist(distr="gamma")
-n.gamma.vals = n.gamma$estimate
-
-r.gamma = prior.data %>%
-  filter(Parameter == "r", !is.na(Value)) %>%
-  pull(Value) %>%
-  fitdist(distr="gamma")
-r.gamma.vals = r.gamma$estimate
 
 #### function to perform inference on a data set ####
 
